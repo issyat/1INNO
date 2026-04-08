@@ -133,8 +133,17 @@ class ChunkingPipeline:
             )
             all_chunks.extend(section_chunks)
             chunk_index += len(section_chunks)
-        
-        return all_chunks
+
+        # Remove exact-text duplicates that survive noise filtering
+        # (e.g. repeated boilerplate that wasn't caught as noise)
+        seen_texts: set = set()
+        unique_chunks: list = []
+        for chunk in all_chunks:
+            if chunk.text not in seen_texts:
+                seen_texts.add(chunk.text)
+                unique_chunks.append(chunk)
+
+        return unique_chunks
     
     def _process_section(self, section: Section,
                         doc_info: DocumentInfo,

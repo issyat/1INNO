@@ -10,8 +10,8 @@ from collections import defaultdict
 
 from .models import Section, TextBlock, BlockType, DocumentInfo
 from .utils import (
-    clean_text, is_heading, estimate_heading_level, 
-    merge_hyphenated_words, is_table_content
+    clean_text, is_heading, estimate_heading_level,
+    merge_hyphenated_words, is_table_content, is_noise_block
 )
 
 
@@ -191,15 +191,20 @@ class PDFParser:
             "min": min(font_sizes)
         }
     
-    def _classify_blocks(self, blocks: List[TextBlock], 
+    def _classify_blocks(self, blocks: List[TextBlock],
                         font_stats: dict) -> List[TextBlock]:
-        """Classify blocks as headings, paragraphs, tables, etc."""
+        """Classify blocks as headings, paragraphs, tables, or noise."""
         for block in blocks:
+            # Noise first — running headers, watermarks, page identifiers
+            if is_noise_block(block.text):
+                block.block_type = BlockType.NOISE
+                continue
+
             # Check for table content
             if is_table_content(block.text):
                 block.block_type = BlockType.TABLE
                 continue
-            
+
             # Check for heading
             if is_heading(
                 block.text,
@@ -210,7 +215,7 @@ class PDFParser:
                 block.block_type = BlockType.HEADING
             else:
                 block.block_type = BlockType.PARAGRAPH
-        
+
         return blocks
     
     def _group_into_sections(self, blocks: List[TextBlock], 
@@ -231,6 +236,10 @@ class PDFParser:
             return self._group_by_pages(blocks, doc_info)
         
         for block in blocks:
+            # Skip noise blocks entirely — don't let them create sections or add content
+            if block.block_type == BlockType.NOISE:
+                continue
+
             if block.block_type == BlockType.HEADING:
                 # Save current section if exists
                 if current_section and current_section.content:
@@ -289,6 +298,8 @@ class PDFParser:
         pages = defaultdict(list)
         
         for block in blocks:
+            if block.block_type == BlockType.NOISE:
+                continue
             if block.block_type == BlockType.TABLE:
                 pages[block.page].append(f"[TABLE]\n{block.text}\n[/TABLE]")
             else:

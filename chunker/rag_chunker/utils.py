@@ -223,6 +223,68 @@ def merge_hyphenated_words(text: str) -> str:
     return re.sub(r'(\w+)-\s*\n\s*(\w+)', r'\1\2', text)
 
 
+def is_noise_block(text: str) -> bool:
+    """
+    Detect running headers, watermarks, and metadata fragments from academic PDFs.
+
+    These blocks are not meaningful content — they pollute heading detection and
+    produce duplicate / tiny chunks.  Patterns detected:
+
+    - NIH / HHS manuscript watermarks  ("NIH-PA Author Manuscript" repeated)
+    - Journal page headers             ("Psychiatry 2006[SEPTEMBER] 62")
+    - Page-of-N identifiers            ("Healthcare2025,13,1247 2of26")
+    - DOI lines                        ("DOI:10.3399/...")
+    - CC-BY licence lines              ("Attribution(CCBY)license")
+    - Published-date metadata          ("Published:8September2025")
+    - Short article identifiers        ("bs15091220", "healthcare13202601")
+    - Author bylines starting with by  ("byALEXANDER L. CHAPMAN,PhD")
+    """
+    if not text:
+        return False
+
+    t = text.strip()
+
+    # ── Repeating watermark phrases ──────────────────────────────────────────
+    if re.search(r'(?:NIH-PA\s+Author\s+Manuscript\s*){2,}', t, re.IGNORECASE):
+        return True
+    if re.search(r'(?:Author\s+Manuscript\s*){3,}', t, re.IGNORECASE):
+        return True
+    if re.match(r'^(?:NIH|HHS)\s+(?:Public\s+Access|PA)\b', t, re.IGNORECASE):
+        return True
+
+    # ── Page-of-N (e.g. "2of26", "3 of 25") ────────────────────────────────
+    if re.search(r'\b\d+\s*of\s*\d+\b', t) and len(t) < 60:
+        return True
+
+    # ── DOI lines ───────────────────────────────────────────────────────────
+    if re.match(r'^DOI\s*:\s*10\.\d{4,}', t, re.IGNORECASE):
+        return True
+
+    # ── Licence / attribution ────────────────────────────────────────────────
+    if re.search(r'Attribution\s*\(?CC\s*[-–]?\s*BY\)?', t, re.IGNORECASE):
+        return True
+
+    # ── Published-date metadata ──────────────────────────────────────────────
+    if re.match(r'^Published\s*:\s*\d', t, re.IGNORECASE):
+        return True
+
+    # ── Journal + year + [MONTH] + page  ("Psychiatry 2006[SEPTEMBER] 62")
+    if re.match(r'^[\[\(]?[A-Z][A-Za-z\s]+[\]\)]?\s*\d{4}\s*[\[\(][A-Z]+[\]\)]\s+\d+$', t):
+        return True
+    if re.match(r'^[A-Za-z\s]+\d{4}\s*[\[\(][A-Z]+[\]\)]\s+\d+$', t):
+        return True
+
+    # ── Short article / journal identifiers (no spaces, all lowercase+digits)
+    if re.match(r'^[a-z]{2,15}\d{5,}$', t):
+        return True
+
+    # ── "byAUTHOR NAME" bylines ─────────────────────────────────────────────
+    if re.match(r'^by[A-Z]', t):
+        return True
+
+    return False
+
+
 def is_table_content(text: str) -> bool:
     """
     Detect if text appears to be table content.

@@ -191,10 +191,15 @@ class RecursiveChunker:
                                     overlap_sentences: List[Sentence]) -> Chunk:
         """Create a chunk from a list of sentences, including overlap."""
         # Combine overlap sentences with current sentences
-        all_sentences = overlap_sentences + sentences
-        
-        # Build text
+        trimmed_overlap = list(overlap_sentences)
+        all_sentences = trimmed_overlap + sentences
+
+        # Build text; trim overlap from the front if we exceed max_tokens
         text = " ".join(s.text for s in all_sentences)
+        while count_tokens(text) > self.config.max_tokens and trimmed_overlap:
+            trimmed_overlap = trimmed_overlap[1:]
+            all_sentences = trimmed_overlap + sentences
+            text = " ".join(s.text for s in all_sentences)
         
         # Merge entities from all sentences
         entities = []

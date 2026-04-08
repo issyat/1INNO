@@ -15,6 +15,7 @@ class BlockType(Enum):
     TABLE = "table"
     LIST = "list"
     UNKNOWN = "unknown"
+    NOISE = "noise"  # Running headers, watermarks, page identifiers — skip entirely
 
 
 @dataclass
