@@ -1,43 +1,43 @@
 """
-Module de base vectorielle avec Chroma
-Stocke et recherche les embeddings médicaux
+Module de base vectorielle avec Chroma - Version stable
 """
 
 import chromadb
 from chromadb.utils import embedding_functions
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import os
-import shutil
+
+# Import direct sans relative
+from config import config
+from chunking import MedicalChunker
 
 class MedicalVectorStore:
-    """
-    Interface avec Chroma DB pour le stockage vectoriel.
-    
-    Exemple:
-        store = MedicalVectorStore()
-        store.create_collection()
-        store.add_documents(chunks)
-        results = store.search("Quel traitement pour l'hypertension ?")
-    """
-    
-    def __init__(self, persist_directory: str = "./chroma_db"):
+    def __init__(self, persist_directory: str = None):
+        if persist_directory is None:
+            persist_directory = config.CHROMA_PERSIST_DIR
+        
         self.persist_directory = persist_directory
         os.makedirs(persist_directory, exist_ok=True)
         self.client = chromadb.PersistentClient(path=persist_directory)
         self.embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="pritamdeka/BioBERT-mnli-snli-scinli-scitail-mednli-stsb"
+            model_name=config.EMBEDDING_MODEL
         )
         self.collection = None
         self.collection_name = None
     
-    def create_collection(self, name: str = "medical_docs", force_recreate: bool = False):
+    def create_collection(self, name: str = None, force_recreate: bool = False):
+        if name is None:
+            name = config.COLLECTION_NAME
+        
         self.collection_name = name
+        
         if force_recreate:
             try:
                 self.client.delete_collection(name)
                 print(f"🗑️ Collection {name} supprimée")
             except:
                 pass
+        
         try:
             self.collection = self.client.get_collection(name)
             print(f"📂 Collection {name} chargée")
@@ -58,7 +58,7 @@ class MedicalVectorStore:
         
         texts = [chunk.page_content for chunk in chunks]
         metadatas = [chunk.metadata for chunk in chunks]
-        ids = [f"chunk_{i}_{hash(chunk.page_content) % 1000000}" for i, chunk in enumerate(chunks)]
+        ids = [f"chunk_{i}" for i in range(len(chunks))]
         
         total_added = 0
         for i in range(0, len(texts), batch_size):
@@ -74,7 +74,10 @@ class MedicalVectorStore:
         print(f"✅ Total: {total_added} chunks ajoutés")
         return total_added
     
-    def search(self, query: str, k: int = 3) -> Dict[str, Any]:
+    def search(self, query: str, k: int = None) -> Dict[str, Any]:
+        if k is None:
+            k = config.DEFAULT_K_RESULTS
+        
         if not self.collection:
             raise ValueError("Collection non initialisée")
         
@@ -100,16 +103,12 @@ class MedicalVectorStore:
             "document_count": self.collection.count()
         }
 
-
 if __name__ == "__main__":
     print("=" * 50)
-    print("Test du module vector store")
+    print("Test vector store")
     print("=" * 50)
     
-    store = MedicalVectorStore(persist_directory="./test_chroma_db")
-    store.create_collection("test", force_recreate=True)
-    
-    from chunking import MedicalChunker
+    # Créer des chunks de test
     chunker = MedicalChunker()
     test_docs = [
         "L'hypertension se traite avec des IEC en première ligne.",
@@ -120,15 +119,11 @@ if __name__ == "__main__":
     for i, text in enumerate(test_docs):
         chunks.extend(chunker.chunk_text(text, {"source": f"test_{i}"}))
     
+    store = MedicalVectorStore("./test_db")
+    store.create_collection("test", force_recreate=True)
     store.add_documents(chunks)
     
-    print("\n🔍 Test de recherche :")
-    query = "traitement hypertension"
-    results = store.search(query, k=2)
-    
-    print(f"Question : {query}")
-    print(f"Résultats : {len(results['documents'])}")
-    for i, doc in enumerate(results['documents']):
-        print(f"  {i+1}. {doc[:100]}...")
+    results = store.search("traitement hypertension", k=1)
+    print(f"🔍 Résultat: {results['documents'][0][:80]}...")
     
     print("\n✅ Vector store OK !")
