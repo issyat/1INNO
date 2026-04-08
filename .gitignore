@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Environment variables — NEVER commit these
+.env
+*.env
+
+# Claude settings
+.claude/
+
+# Node
+node_modules/
+dist/
+
+# Data — PDFs can be large, share via Google Drive instead
+data/input_pdfs/*.pdf
+data/chunks/*.json
+
+# OS
+.DS_Store
+Thumbs.db
