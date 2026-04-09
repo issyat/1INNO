@@ -1,0 +1,24 @@
+# Backend RAG Médical - Dépendances
+
+# Core
+langchain==0.1.0
+chromadb==0.4.22
+sentence-transformers==2.2.2
+
+# Traitement de données
+numpy==1.24.3
+pypdf==3.17.0
+tiktoken==0.5.1
+
+# Machine Learning (pour BioBERT)
+torch==2.1.0
+torchvision==0.16.0
+transformers==4.36.0
+
+# Utilitaires
+python-dotenv==1.0.0
+tqdm==4.66.1
+
+# Tests
+pytest==7.4.3
+pytest-cov==4.1.0
