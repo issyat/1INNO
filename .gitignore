@@ -17,6 +17,9 @@ venv/
 node_modules/
 dist/
 
+# Vector database — generated locally, do not commit
+chroma_db/
+
 # Data — PDFs can be large, share via Google Drive instead
 data/input_pdfs/*.pdf
 data/chunks/*.json
